@@ -240,6 +240,9 @@ type changeInfo struct {
 
 // HandleEvent handles webhook events for repo push events
 func (a *ArgoCDWebhookHandler) HandleEvent(payload interface{}) {
+	log.Info("Webhook HandleEvent started")
+	defer log.Info("Webhook HandleEvent finished")
+
 	webURLs, revision, change, touchedHead, changedFiles := affectedRevisionInfo(payload)
 	// NOTE: the webURL does not include the .git extension
 	if len(webURLs) == 0 {
@@ -255,6 +258,8 @@ func (a *ArgoCDWebhookHandler) HandleEvent(payload interface{}) {
 		// Retrieve app from all namespaces
 		nsFilter = ""
 	}
+
+	log.Info("Webhook HandleEvent setup")
 
 	appIf := a.appClientset.ArgoprojV1alpha1().Applications(nsFilter)
 	apps, err := appIf.List(context.Background(), metav1.ListOptions{})
@@ -283,6 +288,7 @@ func (a *ArgoCDWebhookHandler) HandleEvent(payload interface{}) {
 		}
 	}
 
+	log.Info("Webhook HandleEvent iter start")
 	for _, webURL := range webURLs {
 		repoRegexp, err := getWebUrlRegex(webURL)
 		if err != nil {
@@ -311,6 +317,7 @@ func (a *ArgoCDWebhookHandler) HandleEvent(payload interface{}) {
 			}
 		}
 	}
+	log.Info("Webhook HandleEvent iter finish")
 }
 
 // getWebUrlRegex compiles a regex that will match any targetRevision referring to the same repo as the given webURL.
@@ -392,11 +399,15 @@ func sourceUsesURL(source v1alpha1.ApplicationSource, webURL string, repoRegexp 
 }
 
 func (a *ArgoCDWebhookHandler) Handler(w http.ResponseWriter, r *http.Request) {
+	log.Infof("Webhook Handler started")
+	defer log.Infof("Webhook Handler finished")
+
 	var payload interface{}
 	var err error
 
 	r.Body = http.MaxBytesReader(w, r.Body, a.maxWebhookPayloadSizeB)
 
+	log.Infof("Webhook Handler parsing started")
 	switch {
 	case r.Header.Get("X-Vss-Activityid") != "":
 		if err = a.azuredevopsAuthHandler(r); err != nil {
@@ -437,6 +448,7 @@ func (a *ArgoCDWebhookHandler) Handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unknown webhook event", http.StatusBadRequest)
 		return
 	}
+	log.Infof("Webhook Handler parsing finished")
 
 	if err != nil {
 		// If the error is due to a large payload, return a more user-friendly error message
@@ -456,5 +468,6 @@ func (a *ArgoCDWebhookHandler) Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.HandleEvent(payload)
+	// use this naive paralellism until 2.13 is released with https://github.com/argoproj/argo-cd/pull/18173#issuecomment-2303781922
+	go a.HandleEvent(payload)
 }

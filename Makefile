@@ -24,7 +24,7 @@ GOPATH?=$(shell if test -x `which go`; then go env GOPATH; else echo "$(HOME)/go
 GOCACHE?=$(HOME)/.cache/go-build
 
 # Docker command to use
-DOCKER?=docker
+DOCKER?=podman
 ifeq ($(DOCKER),podman)
 PODMAN_ARGS=--userns keep-id
 else

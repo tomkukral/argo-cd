@@ -106,6 +106,8 @@ func NewWebhookHandler(namespace string, argocdSettingsMgr *argosettings.Setting
 }
 
 func (h *WebhookHandler) HandleEvent(payload interface{}) {
+	log.Infof("Webhook HandleEvent started")
+	defer log.Infof("Webhook HandleEvent finished")
 	gitGenInfo := getGitGeneratorInfo(payload)
 	prGenInfo := getPRGeneratorInfo(payload)
 	if gitGenInfo == nil && prGenInfo == nil {
@@ -176,7 +178,7 @@ func (h *WebhookHandler) Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.HandleEvent(payload)
+	go h.HandleEvent(payload)
 }
 
 func parseRevision(ref string) string {
